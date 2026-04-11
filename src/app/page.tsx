@@ -24,15 +24,16 @@ export default function Home() {
   const [trendRange, setTrendRange] = useState<string>('month');
   const [isTrendModalOpen, setIsTrendModalOpen] = useState(false);
   
-  // Top Categories Settings
-  const [topChartSelectedCategories, setTopChartSelectedCategories] = useState<string[]>([]);
-  const [isTopChartModalOpen, setIsTopChartModalOpen] = useState(false);
+  // Weekly Breakdown Settings
+  const [weeklySelectedCategories, setWeeklySelectedCategories] = useState<string[]>([]);
+  const [isWeeklyModalOpen, setIsWeeklyModalOpen] = useState(false);
 
   const { theme } = useTheme();
 
-  const fetchDashboard = useCallback((month: string, tRange: string) => {
+  const fetchDashboard = useCallback((month: string, tRange: string, wCats: string[]) => {
     let url = `/api/dashboard?trendRange=${tRange}`;
     if (month) url += `&month=${month}`;
+    if (wCats.length > 0) url += `&weeklyCategories=${encodeURIComponent(wCats.join(','))}`;
 
     fetch(url)
       .then(r => r.json())
@@ -40,7 +41,7 @@ export default function Home() {
         setData(d);
         const savedCats = localStorage.getItem('chartSettings_cats');
         const savedSubCats = localStorage.getItem('chartSettings_subCats');
-        const savedTopCats = localStorage.getItem('chartSettings_topCats');
+        const savedWeeklyCats = localStorage.getItem('chartSettings_weeklyCats');
         const savedTrendRange = localStorage.getItem('chartSettings_trendRange');
 
         if (savedTrendRange && savedTrendRange !== tRange) {
@@ -63,20 +64,23 @@ export default function Home() {
           setSelectedSubCategories(d.subCategoryChartData?.map((item: any) => item.name) || []);
         }
 
-        if (savedTopCats) {
-          const parsed = JSON.parse(savedTopCats);
-          const available = d.categoryChartData?.map((item: any) => item.name) || [];
-          setTopChartSelectedCategories(parsed.filter((c: string) => available.includes(c)));
+        if (savedWeeklyCats) {
+          const parsed = JSON.parse(savedWeeklyCats);
+          setWeeklySelectedCategories(parsed);
         } else {
-          setTopChartSelectedCategories(d.categoryChartData?.map((item: any) => item.name) || []);
+          setWeeklySelectedCategories(d.categoryChartData?.map((item: any) => item.name) || []);
         }
       });
   }, []);
 
   useEffect(() => {
     const savedTrendRange = localStorage.getItem('chartSettings_trendRange') || 'month';
+    const savedWeeklyCats = localStorage.getItem('chartSettings_weeklyCats');
+    const wCats = savedWeeklyCats ? JSON.parse(savedWeeklyCats) : [];
+    
     setTrendRange(savedTrendRange);
-    fetchDashboard(selectedMonth, savedTrendRange);
+    setWeeklySelectedCategories(wCats);
+    fetchDashboard(selectedMonth, savedTrendRange, wCats);
 
     fetch('/api/settings').then(r => r.json()).then(d => {
       if(d.subCategories) {
@@ -115,11 +119,9 @@ export default function Home() {
     selectedSubCategories.includes(d.name) || selectedSubCategories.some((s: string) => d.name.endsWith(`: ${s}`))
   ) || [];
 
-  // Top 5 categories for horizontal bar
-  const top5Categories = (data?.categoryChartData || [])
-    .filter((c: any) => topChartSelectedCategories.includes(c.name))
-    .slice(0, 5);
-  const totalExpenseForPct = top5Categories.reduce((s: number, c: any) => s + c.value, 0);
+  // Weekly Breakdown Data
+  const weeklyData = data?.weeklyBreakdown || [];
+  const totalWeeklyExpense = weeklyData.reduce((s: number, w: any) => s + w.value, 0);
 
   const colors = [
     '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899',
@@ -389,27 +391,32 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Top 5 Expense Categories — Horizontal Bars */}
+        {/* Weekly Expenditure Breakdown — Horizontal Bars */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Top Spending Categories</h2>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{selectedMonth ? formatMonthLabel(selectedMonth) : 'All time'} — by amount</p>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Weekly Breakdown</h2>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                {selectedMonth ? `Weeks of ${formatMonthLabel(selectedMonth)}` : 'Top 4 heaviest spending weeks'}
+              </p>
             </div>
-            <button onClick={() => setIsTopChartModalOpen(true)} className="p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Chart Settings">
+            <button onClick={() => setIsWeeklyModalOpen(true)} className="p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Chart Settings">
               <Settings className="w-4 h-4" />
             </button>
           </div>
           <div className="h-[300px] w-full">
-            {top5Categories.length > 0 ? (
-              <div className="flex flex-col justify-center gap-4 h-full">
-                {top5Categories.map((cat: any, i: number) => {
-                  const pct = totalExpenseForPct > 0 ? (cat.value / totalExpenseForPct * 100) : 0;
+            {weeklyData.length > 0 ? (
+              <div className="flex flex-col gap-4 overflow-y-auto h-full scrollbar-thin pr-2">
+                {weeklyData.map((week: any, i: number) => {
+                  const pct = totalWeeklyExpense > 0 ? (week.value / totalWeeklyExpense * 100) : 0;
                   return (
-                    <div key={cat.name} className="group cursor-pointer" onClick={() => handleChartClick(cat.name)}>
+                    <div key={week.label} className="group cursor-default shrink-0" title={week.range}>
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{cat.name}</span>
-                        <span className="text-sm font-bold text-slate-900 dark:text-slate-100">₹{cat.value.toLocaleString()}</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors">{week.label}</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">{week.range}</span>
+                        </div>
+                        <span className="text-sm font-bold text-slate-900 dark:text-slate-100">₹{week.value.toLocaleString()}</span>
                       </div>
                       <div className="relative h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                         <div
@@ -420,14 +427,14 @@ export default function Home() {
                           }}
                         />
                       </div>
-                      <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{pct.toFixed(1)}% of top 5</div>
+                      <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{pct.toFixed(1)}% of period spending</div>
                     </div>
                   );
                 })}
               </div>
             ) : (
               <div className="h-full flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm">
-                No expenses recorded{selectedMonth ? ' this month' : ''}.
+                No weekly data recorded{selectedMonth ? ' for this month' : ''}.
               </div>
             )}
           </div>
@@ -460,14 +467,15 @@ export default function Home() {
       />
 
       <ChartSettingsModal
-        isOpen={isTopChartModalOpen}
-        onClose={() => setIsTopChartModalOpen(false)}
-        title="Top Category Settings"
+        isOpen={isWeeklyModalOpen}
+        onClose={() => setIsWeeklyModalOpen(false)}
+        title="Weekly Breakdown Settings"
         items={data.categoryChartData?.map((d: any) => d.name) || []}
-        selectedItems={topChartSelectedCategories}
+        selectedItems={weeklySelectedCategories}
         onSave={(cats) => {
-          setTopChartSelectedCategories(cats);
-          localStorage.setItem('chartSettings_topCats', JSON.stringify(cats));
+          setWeeklySelectedCategories(cats);
+          localStorage.setItem('chartSettings_weeklyCats', JSON.stringify(cats));
+          fetchDashboard(selectedMonth, trendRange, cats);
         }}
       />
 

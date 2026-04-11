@@ -10,3 +10,35 @@
 body {
   font-family: var(--font-sans), sans-serif;
 }
+
+/* Premium thin scrollbar */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s;
+}
+.scrollbar-thin:hover {
+  scrollbar-color: #cbd5e1 transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 99px;
+  transition: background 0.2s;
+}
+.scrollbar-thin:hover::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+/* Dark mode scrollbar */
+.dark .scrollbar-thin:hover {
+  scrollbar-color: #334155 transparent;
+}
+.dark .scrollbar-thin:hover::-webkit-scrollbar-thumb {
+  background: #334155;
+}

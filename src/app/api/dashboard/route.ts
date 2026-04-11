@@ -3,6 +3,22 @@ import { connectDB } from "@/lib/db";
 import { Transaction } from "@/models/Transaction";
 import { Debt } from "@/models/Debt";
 import { Settings } from "@/models/Settings";
+import { startOfWeek, endOfWeek, format, getISOWeek, getYear, startOfMonth, endOfMonth, eachWeekOfInterval } from "date-fns";
+
+// Helper for week sorting and display
+function getWeekInfo(date: Date) {
+  const week = getISOWeek(date);
+  const year = getYear(date);
+  const start = startOfWeek(date, { weekStartsOn: 1 });
+  const end = endOfWeek(date, { weekStartsOn: 1 });
+  return {
+    week,
+    year,
+    label: `Week ${week} - ${year}`,
+    range: `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`,
+    key: `${year}-W${week}`
+  };
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,6 +26,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const monthParam = searchParams.get('month'); // e.g. "2026-04" or null for all-time
+    const weeklyCategoriesParam = searchParams.get('weeklyCategories');
+    const weeklyCategories = weeklyCategoriesParam ? weeklyCategoriesParam.split(',') : [];
 
     // Fetch data
     const allTransactions = await Transaction.find();
@@ -168,6 +186,61 @@ export async function GET(request: NextRequest) {
     const categoryChartData = Object.entries(expensesByCategory).filter(([_, v]) => v > 0).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
     const subCategoryChartData = Object.entries(expensesBySubCategory).filter(([_, v]) => v > 0).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
 
+    // ── Weekly Breakdown logic ──
+    const weeklyMap: Record<string, { label: string; range: string; value: number }> = {};
+    
+    // Filter transactions for weekly breakdown by categories if provided
+    const weeklyTransactions = weeklyCategories.length > 0 
+      ? allTransactions.filter(t => weeklyCategories.includes(t.category) && t.type === 'DEBIT')
+      : allTransactions.filter(t => t.type === 'DEBIT');
+
+    if (monthParam) {
+      // Show all weeks in that month
+      const [y, m] = monthParam.split('-').map(Number);
+      const mStart = startOfMonth(new Date(y, m - 1));
+      const mEnd = endOfMonth(mStart);
+      
+      // Get all weeks that overlap with this month
+      const weeksInMonth = eachWeekOfInterval({ start: mStart, end: mEnd }, { weekStartsOn: 1 });
+      
+      weeksInMonth.forEach(w => {
+        const info = getWeekInfo(w);
+        weeklyMap[info.key] = { label: info.label, range: info.range, value: 0 };
+      });
+
+      weeklyTransactions.forEach(t => {
+        const td = new Date(t.date);
+        const info = getWeekInfo(td);
+        if (weeklyMap[info.key]) {
+          weeklyMap[info.key].value += t.amount;
+        }
+      });
+    } else {
+      // All time: group all and take top 4
+      weeklyTransactions.forEach(t => {
+        const td = new Date(t.date);
+        const info = getWeekInfo(td);
+        if (!weeklyMap[info.key]) {
+          weeklyMap[info.key] = { label: info.label, range: info.range, value: 0 };
+        }
+        weeklyMap[info.key].value += t.amount;
+      });
+    }
+
+    let weeklyBreakdown = Object.values(weeklyMap);
+    if (!monthParam) {
+      // Sort and take top 4 for all-time
+      weeklyBreakdown.sort((a, b) => b.value - a.value);
+      weeklyBreakdown = weeklyBreakdown.slice(0, 4);
+    } else {
+      // Sort by week number for monthly view
+      // We can just rely on the order from eachWeekOfInterval or sort by date
+      // (The keys currently are YYYY-WW, so simple sort works)
+      weeklyBreakdown = Object.entries(weeklyMap)
+        .sort(([k1], [k2]) => k1.localeCompare(k2))
+        .map(([_, v]) => v);
+    }
+
     return NextResponse.json({
       currentBalance,
       netWorth,
@@ -182,6 +255,7 @@ export async function GET(request: NextRequest) {
       categoryChartData,
       subCategoryChartData,
       monthlyTrend,
+      weeklyBreakdown,
       availableMonths
     });
 
