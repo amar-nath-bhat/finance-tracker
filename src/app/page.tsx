@@ -211,15 +211,15 @@ export default function Home() {
 
         <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden">
           <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600 shrink-0">
-              <TrendingUp className="h-6 w-6" />
+            <div className="p-3 bg-violet-50 dark:bg-violet-900/20 rounded-xl text-violet-600 shrink-0">
+              <CreditCard className="h-6 w-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Net Worth</p>
-              <h3 className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-slate-50 break-words">₹{data.netWorth.toFixed(2)}</h3>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{selectedMonth ? 'Monthly CC Payments' : 'Total CC Payments'}</p>
+              <h3 className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-slate-50 break-words">₹{data.totalCreditCardExpenses.toFixed(2)}</h3>
             </div>
           </div>
-          <div className="text-xs text-slate-400 dark:text-slate-500 mt-auto">Balance + Owed To Me - Owed By Me</div>
+          <div className="text-xs text-slate-400 dark:text-slate-500 mt-auto">Expenses paid using Credit Card</div>
         </div>
 
         <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden">
@@ -232,10 +232,7 @@ export default function Home() {
               <h3 className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-slate-50 break-words">₹{(data.netExpenses || 0).toFixed(2)}</h3>
             </div>
           </div>
-          <div className="text-xs text-red-500 dark:text-red-400 mt-auto font-medium flex items-center gap-1">
-            <CreditCard className="w-3 h-3 shrink-0" />
-            <span>₹{data.totalCreditCardExpenses.toFixed(2)} on Credit</span>
-          </div>
+          <div className="text-xs text-slate-400 dark:text-slate-500 mt-auto">Total outgoing transactions</div>
         </div>
 
         <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden">
